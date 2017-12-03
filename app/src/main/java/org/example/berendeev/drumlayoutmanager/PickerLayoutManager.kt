@@ -8,19 +8,27 @@ import android.view.View
 import com.example.dmitry_macpro.drumlayoutmanager.R
 
 
+/**
+ * First and last element limit by center of screen.
+ *
+ * Notifies items about distance to center.
+ *
+ * Item view have to have tag with key "VIEW_TAG_DISTANCE_TO_FOCUS_LISTENER" and
+ * implementation of DistanceToFocusListener in tag value
+ */
 class PickerLayoutManager(val context: Context) : RecyclerView.LayoutManager() {
     companion object {
         val NO_POSITION = -1
         val VIEW_TAG_DISTANCE_TO_FOCUS_LISTENER = R.id.VIEW_TAG_DISTANCE_TO_FOCUS_LISTENER
     }
 
-    var onFocusChangeListener: (adapterPosition: Int) -> Unit = {}
-
-    var focusedItemAdapterPositon: Int = NO_POSITION
-        get() = savedState.focusPosition
-
     var stickyY: Int = 0
         get() = height / 2
+
+    var onFocusChangeListener: (adapterPosition: Int) -> Unit = {}
+
+    var focusedItemAdapterPosition: Int = NO_POSITION
+        get() = savedState.focusPosition
 
     private var savedState: SavedState = SavedState()
 
@@ -55,16 +63,24 @@ class PickerLayoutManager(val context: Context) : RecyclerView.LayoutManager() {
         val anchorView = getAnchor(recycler)
         val anchorTop = getDecoratedTop(anchorView)
         val anchorPosition = getPosition(anchorView)
-        if (savedState.focusPosition != anchorPosition) {
-            savedState.focusPosition = anchorPosition
-            onFocusChangeListener(anchorPosition)
-        }
-
         detachAndScrapAttachedViews(recycler)
         fillDown(anchorTop, anchorPosition, recycler)
         fillUp(anchorTop, anchorPosition, recycler)
+        saveFocusPosition()
         notifyHoldersAboutDistance(recycler)
         recycleUnused(recycler)
+    }
+
+    private fun saveFocusPosition() {
+        val viewInFocus = findViewInFocus()
+        if (viewInFocus == null) {
+            return
+        }
+        val focusPosition = getPosition(viewInFocus)
+        if (savedState.focusPosition != focusPosition) {
+            savedState.focusPosition = focusPosition
+            onFocusChangeListener(focusPosition)
+        }
     }
 
     private fun notifyHoldersAboutDistance(recycler: RecyclerView.Recycler) {
@@ -85,12 +101,7 @@ class PickerLayoutManager(val context: Context) : RecyclerView.LayoutManager() {
         } else if (childCount == 0) {
             return createAnchor(0, recycler)
         } else {
-            val view = findViewInFocus()
-            if (view != null) {
-                return view
-            } else {
-                throw IllegalStateException("One view should be in focus if childCount>0")
-            }
+            return getChildAt(0)
         }
     }
 
@@ -178,7 +189,7 @@ class PickerLayoutManager(val context: Context) : RecyclerView.LayoutManager() {
         return RecyclerView.LayoutParams(RecyclerView.LayoutParams.MATCH_PARENT, RecyclerView.LayoutParams.MATCH_PARENT)
     }
 
-    override fun scrollVerticallyBy(dy: Int, recycler: RecyclerView.Recycler, state: RecyclerView.State?): Int {
+    override fun scrollVerticallyBy(dy: Int, recycler: RecyclerView.Recycler, state: RecyclerView.State): Int {
         val delta = scrollVerticallyInternal(dy)
         offsetChildrenVertical(-delta)
         fill(recycler)
